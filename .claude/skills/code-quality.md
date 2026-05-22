@@ -1,42 +1,73 @@
 # Skill: /code-quality
 
-Analyse la qualité du code du projet en combinant ESLint, Stylelint et les règles SonarQube.
+Analyse et corrige la qualité du code du projet actuel.
 
-## Ce que fait ce skill
+## Comportement par défaut
 
-1. **Détecte le type de projet** (JS/TS, CSS/SCSS, React, Vue, etc.)
-2. **Analyse le code** selon les règles de qualité :
-   - JavaScript/TypeScript → règles ESLint (no-unused-vars, no-console, complexity, etc.)
-   - CSS/SCSS → règles Stylelint (order, naming, specificity)
-   - Logique métier → règles SonarQube (code smells, duplications, complexity cyclomatique)
-3. **Reporte les problèmes** classés par sévérité : ERROR / WARNING / INFO
-4. **Corrige automatiquement** les problèmes auto-fixables
-5. **Propose des refactorisations** pour les problèmes complexes
+Quand l'utilisateur tape `/code-quality` sans argument :
+1. Lancer `git diff --name-only HEAD` pour obtenir les fichiers modifiés
+2. Si aucun fichier modifié, analyser tout le projet (`src/`, `app/`, `lib/`)
+3. Détecter le langage (JS/TS/CSS/Python) et appliquer les règles correspondantes
+4. Afficher le rapport puis proposer `--fix`
 
-## Instructions
+## Étapes d'exécution
 
-Quand l'utilisateur invoque `/code-quality` :
+### 1. Détecter les outils disponibles
+```bash
+# Vérifier si les outils sont installés localement
+[ -f node_modules/.bin/eslint ] && echo "eslint:ok"
+[ -f node_modules/.bin/stylelint ] && echo "stylelint:ok"
+[ -f .eslintrc* ] || [ -f eslint.config* ] && echo "eslint-config:ok"
+```
 
-- Si aucun fichier n'est précisé, analyser tous les fichiers modifiés (`git diff --name-only`)
-- Si un fichier/dossier est précisé, analyser uniquement celui-ci
-- Afficher un rapport groupé par fichier avec numéros de ligne
-- Appliquer les corrections auto-fixables directement
-- Pour chaque problème non auto-fixable, proposer une solution concrète avec exemple de code
+Si les outils ne sont PAS installés : analyser le code manuellement en appliquant les règles ci-dessous.
+
+### 2. Règles ESLint à appliquer (JS/TS)
+- `no-unused-vars` : variables déclarées jamais utilisées
+- `no-console` : console.log laissés dans le code
+- `eqeqeq` : utilisation de `==` au lieu de `===`
+- `no-var` : utilisation de `var` au lieu de `const`/`let`
+- `prefer-const` : `let` qui n'est jamais réassigné
+- `complexity` : fonctions avec complexité cyclomatique > 10
+- `max-lines-per-function` : fonctions dépassant 50 lignes
+- `no-duplicate-imports` : imports dupliqués du même module
+- `@typescript-eslint/no-explicit-any` : usage de `any` en TypeScript
+
+### 3. Règles Stylelint à appliquer (CSS/SCSS)
+- Propriétés dans l'ordre alphabétique ou logique
+- Pas de `!important` sauf exception justifiée
+- Unités cohérentes (px vs rem)
+- Sélecteurs trop spécifiques (profondeur > 3)
+- Variables CSS non utilisées
+
+### 4. Règles SonarQube à appliquer (tous langages)
+- Code dupliqué (même bloc > 10 lignes copié ailleurs)
+- Fonctions trop longues (> 100 lignes)
+- Fichiers trop longs (> 300 lignes)
+- TODO/FIXME laissés dans le code
+- Retours anticipés manquants (fonctions avec trop d'imbrications)
 
 ## Format du rapport
 
 ```
-[FICHIER] src/components/Button.tsx
-  L12 ERROR   no-unused-vars: 'props' est déclaré mais jamais utilisé
-  L34 WARNING complexity: fonction trop complexe (score: 15, max: 10)
-  L67 INFO    prefer-const: utiliser 'const' au lieu de 'let'
+╔══════════════════════════════════════════════╗
+║         RAPPORT QUALITÉ — src/Button.tsx     ║
+╚══════════════════════════════════════════════╝
 
-Résumé: 3 problèmes (1 ERROR, 1 WARNING, 1 INFO) — 1 auto-fixable
+❌ ERROR   L12  no-unused-vars: 'theme' déclaré mais jamais utilisé
+⚠️  WARNING L34  complexity: score 14/10 — décomposer en sous-fonctions
+ℹ️  INFO    L67  prefer-const: remplacer 'let count' par 'const count'
+ℹ️  INFO    L89  no-console: supprimer console.log de debug
+
+────────────────────────────────────────────────
+Résumé: 4 problèmes | 1 ERROR · 1 WARNING · 2 INFO
+Auto-fixables: 2 (taper /code-quality --fix pour corriger)
 ```
 
-## Arguments optionnels
+## Arguments
 
-- `/code-quality --fix` → applique toutes les corrections automatiques
-- `/code-quality --strict` → active toutes les règles, zéro tolérance
-- `/code-quality src/components` → analyse un dossier spécifique
-- `/code-quality --report` → génère un rapport HTML exportable
+- `/code-quality --fix` → corrige tous les problèmes auto-fixables directement dans les fichiers
+- `/code-quality --strict` → active toutes les règles sans tolérance
+- `/code-quality [chemin]` → analyse un fichier ou dossier spécifique
+- `/code-quality --report` → génère un rapport markdown dans `quality-report.md`
+- `/code-quality --ci` → mode silencieux, retourne erreur si ERROR trouvé (usage CI/CD)
