@@ -7,7 +7,8 @@ depense totale et benefice total, puis agrege par gamme.
 Colonnes attendues :
   gamme, reference, produit, cout_achat_ht, frais_variables_ht,
   remise_b2b_pct, marge_cible_pct, quantite_prevue, tva_pct
-Colonne optionnelle :
+Colonnes optionnelles :
+  poids_g       -> active les prix de revient et de vente au gramme
   pv_ht_impose  -> si renseignee, remplace le calcul par marge cible
 """
 
@@ -17,11 +18,14 @@ import sys
 from collections import OrderedDict
 
 CHAMPS_SORTIE = [
-    "gamme", "reference", "produit",
-    "cout_revient_ht", "pv_catalogue_ht", "pv_b2b_ht", "pv_b2b_ttc",
+    "gamme", "reference", "produit", "poids_g",
+    "cout_revient_ht", "cout_revient_par_g", "pv_catalogue_ht",
+    "pv_b2b_ht", "pv_b2b_par_g", "pv_b2b_ttc",
     "benefice_unitaire_ht", "taux_marge_pct", "coefficient",
     "quantite", "depense_totale_ht", "ca_total_ht", "benefice_total_ht",
 ]
+
+PALIERS_GRILLE = (30, 40, 50, 60)
 
 
 def nombre(valeur, defaut=0.0):
@@ -39,6 +43,7 @@ def calcule_ligne(ligne):
     quantite = nombre(ligne.get("quantite_prevue"))
     tva = nombre(ligne.get("tva_pct"), 20.0)
     pv_impose = nombre(ligne.get("pv_ht_impose"))
+    poids = nombre(ligne.get("poids_g"))
 
     cout_revient = cout_achat + frais
 
@@ -61,9 +66,12 @@ def calcule_ligne(ligne):
         ("gamme", ligne.get("gamme", "")),
         ("reference", ligne.get("reference", "")),
         ("produit", ligne.get("produit", "")),
+        ("poids_g", poids),
         ("cout_revient_ht", cout_revient),
+        ("cout_revient_par_g", cout_revient / poids if poids else 0.0),
         ("pv_catalogue_ht", pv_catalogue),
         ("pv_b2b_ht", pv_b2b),
+        ("pv_b2b_par_g", pv_b2b / poids if poids else 0.0),
         ("pv_b2b_ttc", pv_b2b * (1 + tva / 100)),
         ("benefice_unitaire_ht", benefice_unitaire),
         ("taux_marge_pct", taux_marge),
@@ -94,13 +102,13 @@ def agrege(lignes):
 
 
 def affiche(lignes, gammes):
-    entete = "%-12s %-9s %-24s %8s %9s %9s %8s %7s" % (
+    entete = "%-12s %-11s %-24s %8s %9s %9s %8s %7s" % (
         "GAMME", "REF", "PRODUIT", "REVIENT", "PV B2B HT", "PV TTC", "BENEF/U", "MARGE%")
     print(entete)
     print("-" * len(entete))
     for l in lignes:
-        print("%-12s %-9s %-24s %8.2f %9.2f %9.2f %8.2f %6.1f%%" % (
-            l["gamme"][:12], l["reference"][:9], l["produit"][:24],
+        print("%-12s %-11s %-24s %8.2f %9.2f %9.2f %8.2f %6.1f%%" % (
+            l["gamme"][:12], l["reference"][:11], l["produit"][:24],
             l["cout_revient_ht"], l["pv_b2b_ht"], l["pv_b2b_ttc"],
             l["benefice_unitaire_ht"], l["taux_marge_pct"]))
 
@@ -125,10 +133,32 @@ def affiche(lignes, gammes):
         total["ca_total_ht"], total["benefice_total_ht"], taux_global))
 
 
+def affiche_grille(lignes):
+    """Pour chaque produit, le prix de vente et le benefice a plusieurs marges."""
+    entete = "%-11s %-22s %9s" % ("REF", "PRODUIT", "REVIENT")
+    for palier in PALIERS_GRILLE:
+        entete += " %17s" % ("marge %d%%" % palier)
+    print(entete)
+    print("-" * len(entete))
+    for l in lignes:
+        au_gramme = bool(l["poids_g"])
+        base = l["cout_revient_par_g"] if au_gramme else l["cout_revient_ht"]
+        ligne = "%-11s %-22s %8.2f%s" % (
+            l["reference"][:11], l["produit"][:22], base, "/g" if au_gramme else "  ")
+        for palier in PALIERS_GRILLE:
+            pv = base / (1 - palier / 100)
+            ligne += " %8.2f (+%.2f)" % (pv, pv - base)
+        print(ligne)
+    print("\nPV et benefice %s, HT. Marge = benefice / prix de vente."
+          % ("au gramme" if any(l["poids_g"] for l in lignes) else "a l'unite"))
+
+
 def main():
     parseur = argparse.ArgumentParser(description=__doc__)
     parseur.add_argument("catalogue", nargs="?", default="catalogue.csv")
     parseur.add_argument("-o", "--sortie", help="chemin du CSV de resultats")
+    parseur.add_argument("-g", "--grille", action="store_true",
+                         help="grille des prix de vente par palier de marge")
     args = parseur.parse_args()
 
     try:
@@ -143,6 +173,9 @@ def main():
     if not lignes:
         sys.exit("Catalogue vide.")
 
+    if args.grille:
+        affiche_grille(lignes)
+        print()
     affiche(lignes, agrege(lignes))
 
     if args.sortie:

@@ -1,8 +1,3 @@
-gamme,reference,produit,cout_achat_ht,frais_variables_ht,remise_b2b_pct,marge_cible_pct,quantite_prevue,tva_pct
-Textile,TX-001,T-shirt coton bio,6.50,1.20,10,45,500,20
-Textile,TX-002,Sweat capuche,14.00,1.80,10,45,200,20
-Textile,TX-003,Casquette brodee,4.20,0.90,10,50,300,20
-Accessoires,AC-001,Tote bag,2.80,0.60,15,55,800,20
-Accessoires,AC-002,Mug ceramique,3.40,1.50,15,50,400,20
-Papeterie,PA-001,Carnet A5,2.10,0.40,5,60,1000,20
-Papeterie,PA-002,Stylo metal grave,1.60,0.30,5,60,1500,20
+gamme,reference,produit,poids_g,cout_achat_ht,frais_variables_ht,remise_b2b_pct,marge_cible_pct,quantite_prevue,tva_pct
+Icerock,IR-CSA-50,Icerock CSA 50 g,50,146.25,0,0,50,1,20
+Icerock,IR-CSA-100,Icerock CSA 100 g,100,272.50,0,0,50,1,20
